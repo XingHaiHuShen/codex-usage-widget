@@ -53,7 +53,7 @@ public static class CodexActivityHookPayloadParser
                     CodexActivitySignalKind.TurnStarted,
                     payload.SessionId,
                     payload.TurnId),
-            "Stop" when !string.IsNullOrWhiteSpace(payload.TurnId) =>
+            "Stop" or "Interrupt" when !string.IsNullOrWhiteSpace(payload.TurnId) =>
                 new CodexActivitySignal(
                     CodexActivitySignalKind.TurnStopped,
                     payload.SessionId,

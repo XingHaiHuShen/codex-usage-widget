@@ -28,7 +28,9 @@
   <data name="Status_Connecting" xml:space="preserve"><value>Connecting…</value></data>
   <data name="Status_WaitingForCodex" xml:space="preserve"><value>Waiting for Codex</value></data>
   <data name="Status_LocalWaiting" xml:space="preserve"><value>Local only · waiting for sync</value></data>
-  <data name="Status_Offline" xml:space="preserve"><value>Offline</value></data>
+  <data name="Status_Offline" xml:space="preserve"><value>Usage unavailable</value></data>
+  <data name="Status_Stale" xml:space="preserve"><value>Update failed · last reading</value></data>
+  <data name="Activity_Uncertain" xml:space="preserve"><value>Activity could not be confirmed</value></data>
   <data name="Status_LocalRetry" xml:space="preserve"><value>Local only · select refresh to retry</value></data>
   <data name="Status_Syncing" xml:space="preserve"><value>Syncing…</value></data>
   <data name="Status_LivePlan" xml:space="preserve"><value>Live · {0}</value></data>

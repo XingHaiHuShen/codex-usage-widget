@@ -28,7 +28,9 @@
   <data name="Status_Connecting" xml:space="preserve"><value>正在连接…</value></data>
   <data name="Status_WaitingForCodex" xml:space="preserve"><value>正在等待 Codex</value></data>
   <data name="Status_LocalWaiting" xml:space="preserve"><value>仅限本机 · 等待同步</value></data>
-  <data name="Status_Offline" xml:space="preserve"><value>离线</value></data>
+  <data name="Status_Offline" xml:space="preserve"><value>用量暂不可用</value></data>
+  <data name="Status_Stale" xml:space="preserve"><value>更新失败 · 上次数据</value></data>
+  <data name="Activity_Uncertain" xml:space="preserve"><value>活动状态暂时无法确认</value></data>
   <data name="Status_LocalRetry" xml:space="preserve"><value>仅限本机 · 请选择刷新后重试</value></data>
   <data name="Status_Syncing" xml:space="preserve"><value>正在同步…</value></data>
   <data name="Status_LivePlan" xml:space="preserve"><value>实时 · {0}</value></data>

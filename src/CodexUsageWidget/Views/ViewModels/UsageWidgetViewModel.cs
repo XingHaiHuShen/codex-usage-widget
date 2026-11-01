@@ -64,6 +64,23 @@ public sealed class UsageWidgetViewModel
         UpdatedText = Strings.Get("Status_LocalRetry")
     };
 
+    public UsageWidgetViewModel Stale(string message) => new()
+    {
+        StatusText = Strings.Get("Status_Stale"),
+        StatusBrush = BrushFromHex("#D6A15F"),
+        HeadlineRemainingText = HeadlineRemainingText,
+        HeadlineLabel = HeadlineLabel,
+        UpdatedText = UpdatedText,
+        WarningText = message,
+        GeneralLimits = GeneralLimits,
+        ModelLimits = ModelLimits,
+        AccountMetrics = AccountMetrics,
+        ResetCredits = null,
+        TokenActivity = TokenActivity,
+        HeadlineRemainingPercent = HeadlineRemainingPercent,
+        HeadlineResetsAt = HeadlineResetsAt
+    };
+
     public UsageWidgetViewModel Syncing() => new()
     {
         StatusText = Strings.Get("Status_Syncing"),

@@ -18,7 +18,27 @@ public sealed class CodexAppServerSession : ICodexAppServerSession
         CancellationToken cancellationToken)
     {
         var connection = await GetConnectionAsync(cancellationToken).ConfigureAwait(false);
-        return await connection.RequestAsync(method, parameters, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await connection.RequestAsync(method, parameters, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // A process can remain alive while its protocol loop is stuck. Reconnect on the next request.
+            await _startLock.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+            try
+            {
+                if (ReferenceEquals(_connection, connection))
+                {
+                    await DisposeConnectionAsync().ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                _startLock.Release();
+            }
+            throw;
+        }
     }
 
     private async Task<JsonRpcConnection> GetConnectionAsync(CancellationToken cancellationToken)

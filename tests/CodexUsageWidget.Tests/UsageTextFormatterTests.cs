@@ -16,7 +16,7 @@ public sealed class UsageTextFormatterTests : IDisposable
     [Fact]
     public void FormatResetUsesCeilingForRemainingHours()
     {
-        Strings.Current.SetCulture(CultureInfo.GetCultureInfo("en-US"));
+        Strings.Current.SetCulture(CultureInfo.GetCultureInfo("en-US"), CultureInfo.GetCultureInfo("en-US"));
         var now = new DateTimeOffset(2030, 1, 1, 12, 0, 0, TimeSpan.Zero);
         var reset = now.AddHours(2).AddMinutes(10);
 

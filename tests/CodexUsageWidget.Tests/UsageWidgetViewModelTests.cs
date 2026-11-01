@@ -91,6 +91,10 @@ public sealed class UsageWidgetViewModelTests
     [Fact]
     public void FromSnapshotFormatsUpdatedTimeUsingPreference()
     {
+        var previousCulture = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+        System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
         var window = new UsageWindow("5h limit", 20, 300, null);
         var snapshot = new UsageSnapshot(
             new UsageRateLimits(
@@ -114,6 +118,23 @@ public sealed class UsageWidgetViewModelTests
             TimeFormatPreference.TwelveHour);
 
         Assert.Equal("Local only · updated 2:05:09 PM", viewModel.UpdatedText);
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = previousCulture; }
+    }
+
+    [Fact]
+    public void FailedRefreshPreservesAmountsAndTimestampWithAVisibleWarning()
+    {
+        var window = new UsageWindow("5h limit", 20, 300, null);
+        var snapshot = CreateSnapshot(new UsageLimitBucket("codex", "Codex", true, [window], null, null, null, null));
+        var live = UsageWidgetViewModel.FromSnapshot(snapshot, window);
+        var stale = live.Stale("Connection timed out");
+        Assert.Equal(live.HeadlineRemainingPercent, stale.HeadlineRemainingPercent);
+        Assert.Equal(live.UpdatedText, stale.UpdatedText);
+        Assert.Equal(live.GeneralLimits, stale.GeneralLimits);
+        Assert.Equal("Connection timed out", stale.WarningText);
+        Assert.Contains("last reading", stale.StatusText, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(stale.ResetCredits);
     }
 
     [Fact]

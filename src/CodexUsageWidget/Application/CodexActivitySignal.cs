@@ -10,4 +10,6 @@ public enum CodexActivitySignalKind
 public sealed record CodexActivitySignal(
     CodexActivitySignalKind Kind,
     string SessionId,
-    string? TurnId = null);
+    string? TurnId = null,
+    long TimestampTicks = 0,
+    bool Recovered = false);

@@ -3,8 +3,10 @@ using CodexUsageWidget.Application;
 
 namespace CodexUsageWidget.Infrastructure.Codex;
 
-public sealed class CodexTurnCompletionReader(ICodexAppServerSession session) : ICodexTurnCompletionReader
+public sealed class CodexTurnCompletionReader(ICodexAppServerSession session) : ICodexTurnCompletionReader, IAsyncDisposable
 {
+    public ValueTask DisposeAsync() => session.DisposeAsync();
+
     public async Task<bool> IsCompletedAsync(
         string sessionId, string turnId, CancellationToken cancellationToken)
     {

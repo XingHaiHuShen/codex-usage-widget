@@ -23,7 +23,7 @@ internal sealed class JsonRpcConnection : IAsyncDisposable
 
     public event EventHandler? Closed;
 
-    public bool IsRunning => _process is { HasExited: false };
+    public bool IsRunning => _process is { HasExited: false } && _readTask is { IsCompleted: false };
 
     public void Start()
     {
@@ -110,6 +110,7 @@ internal sealed class JsonRpcConnection : IAsyncDisposable
                 var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
                 if (line is null)
                 {
+                    FailPending(new IOException("Codex app-server output closed."));
                     break;
                 }
 

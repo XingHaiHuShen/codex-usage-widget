@@ -12,6 +12,15 @@ internal static class CodexExecutableLocator
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
             var expandedPath = Environment.ExpandEnvironmentVariables(configuredPath.Trim().Trim('"'));
+            var managedBin = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenAI", "Codex", "bin");
+            if (Path.GetFullPath(expandedPath).StartsWith(managedBin + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                var current = ResolveManagedInstallation(managedBin);
+                if (current is not null)
+                {
+                    return current;
+                }
+            }
             if (!File.Exists(expandedPath))
             {
                 throw new FileNotFoundException(
@@ -54,4 +63,12 @@ internal static class CodexExecutableLocator
         throw new FileNotFoundException(
             "Codex CLI was not found. Install Codex and ensure codex.cmd is available on PATH.");
     }
+
+    internal static string? ResolveManagedInstallation(string binDirectory) => Directory.Exists(binDirectory)
+        ? Directory.EnumerateDirectories(binDirectory)
+            .Select(directory => Path.Combine(directory, "codex.exe"))
+            .Where(File.Exists)
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault()
+        : null;
 }

@@ -5,6 +5,40 @@ namespace CodexUsageWidget.Tests;
 public sealed class CodexActivityMonitorTests
 {
     [Fact]
+    public async Task FailedCheckForOldTurnCannotMarkNewTurnUncertain()
+    {
+        await using var source = new FakeSignalSource();
+        var result = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reader = new FakeCompletionReader((_, _, _) => result.Task);
+        await using var monitor = new CodexActivityMonitor(source, reader);
+        await monitor.StartAsync();
+        source.Publish(new(CodexActivitySignalKind.TurnStarted, "session", "old"));
+        var reconciliation = monitor.ReconcileAsync();
+        source.Publish(new(CodexActivitySignalKind.TurnStarted, "session", "new"));
+        result.SetException(new InvalidOperationException("old check failed"));
+        await reconciliation;
+        Assert.True(monitor.IsActive);
+        Assert.False(monitor.IsUncertain);
+    }
+
+    [Fact]
+    public async Task OneUncertainSessionDoesNotHideAnotherConfirmedRunningTurn()
+    {
+        await using var source = new FakeSignalSource();
+        var reader = new FakeCompletionReader((_, _, _) => Task.FromException<bool>(new InvalidOperationException("unavailable")));
+        await using var monitor = new CodexActivityMonitor(source, reader);
+        await monitor.StartAsync();
+        source.Publish(new(CodexActivitySignalKind.TurnStarted, "old-session", "old"));
+        await monitor.ReconcileAsync();
+        Assert.True(monitor.IsUncertain);
+        source.Publish(new(CodexActivitySignalKind.TurnStarted, "new-session", "new"));
+        Assert.True(monitor.IsActive);
+        Assert.False(monitor.IsUncertain);
+        source.Publish(new(CodexActivitySignalKind.TurnStopped, "new-session", "new"));
+        Assert.True(monitor.IsUncertain);
+    }
+
+    [Fact]
     public async Task DisposalDuringTimerTickStillDisposesSignalSource()
     {
         var source = new FakeSignalSource();
@@ -157,8 +191,10 @@ public sealed class CodexActivityMonitorTests
 
         await monitor.ReconcileAsync();
         Assert.True(monitor.IsActive);
+        Assert.True(monitor.IsUncertain);
         await monitor.ReconcileAsync();
         Assert.False(monitor.IsActive);
+        Assert.False(monitor.IsUncertain);
     }
 
     [Fact]
@@ -287,7 +323,10 @@ public sealed class CodexActivityMonitorTests
         var changes = new List<bool>();
         string? diagnostic = null;
         monitor.ActivityChanged += changes.Add;
-        monitor.DiagnosticMessage += (_, message) => diagnostic = message;
+        monitor.DiagnosticMessage += (_, message) =>
+        {
+            if (message.StartsWith("Recovered stale", StringComparison.Ordinal)) { diagnostic = message; }
+        };
         await monitor.StartAsync();
 
         source.Publish(new(CodexActivitySignalKind.TurnStarted, "session", "aborted-turn"));

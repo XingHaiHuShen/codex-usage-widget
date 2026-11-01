@@ -5,6 +5,7 @@ namespace CodexUsageWidget.Application;
 
 public sealed class UsageMonitor : IAsyncDisposable
 {
+    private static readonly string[] TransientErrors = ["timed out", "timeout", "error sending request", "connection", "app-server stopped", "app-server exited", "503", "502"];
     private readonly IUsageProvider _provider;
     private readonly TimeSpan _refreshInterval;
     private readonly TimeSpan _requestTimeout;
@@ -20,7 +21,7 @@ public sealed class UsageMonitor : IAsyncDisposable
     {
         _provider = provider;
         _refreshInterval = refreshInterval ?? TimeSpan.FromMinutes(2);
-        _requestTimeout = requestTimeout ?? TimeSpan.FromSeconds(12);
+        _requestTimeout = requestTimeout ?? TimeSpan.FromSeconds(20);
     }
 
     public event Action? RefreshStarted;
@@ -29,11 +30,7 @@ public sealed class UsageMonitor : IAsyncDisposable
 
     public event Action<string>? RefreshFailed;
 
-    public event EventHandler<string>? DiagnosticMessage
-    {
-        add => _provider.DiagnosticMessage += value;
-        remove => _provider.DiagnosticMessage -= value;
-    }
+    public event EventHandler<string>? DiagnosticMessage;
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -43,6 +40,7 @@ public sealed class UsageMonitor : IAsyncDisposable
         }
 
         _started = true;
+        _provider.DiagnosticMessage += ProviderOnDiagnosticMessage;
         _provider.RateLimitsChanged += ProviderOnRateLimitsChanged;
         _periodicRefreshTask = RunPeriodicRefreshAsync(_lifetime.Token);
         await RefreshAsync(cancellationToken).ConfigureAwait(false);
@@ -69,20 +67,34 @@ public sealed class UsageMonitor : IAsyncDisposable
         try
         {
             RefreshStarted?.Invoke();
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken,
-                _lifetime.Token);
-            timeout.CancelAfter(_requestTimeout);
-
-            var snapshot = await _provider.ReadUsageAsync(timeout.Token).ConfigureAwait(false);
+            UsageSnapshot snapshot;
+            for (var attempt = 0; ; attempt++)
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+                timeout.CancelAfter(_requestTimeout);
+                try
+                {
+                    snapshot = await _provider.ReadUsageAsync(timeout.Token).ConfigureAwait(false);
+                    break;
+                }
+                catch (Exception ex) when (attempt == 0 && !cancellationToken.IsCancellationRequested &&
+                    !_lifetime.IsCancellationRequested && IsTransient(ex))
+                {
+                    DiagnosticMessage?.Invoke(this, "Usage refresh temporarily failed; retrying once.");
+                    using var retry = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+                    await Task.Delay(TimeSpan.FromSeconds(1), retry.Token).ConfigureAwait(false);
+                }
+            }
             SnapshotUpdated?.Invoke(snapshot);
         }
         catch (OperationCanceledException) when (!_lifetime.IsCancellationRequested)
         {
+            DiagnosticMessage?.Invoke(this, "Usage refresh timed out; retaining the last successful reading.");
             RefreshFailed?.Invoke(Strings.Get("Error_ResponseTimeout"));
         }
         catch (Exception ex)
         {
+            DiagnosticMessage?.Invoke(this, $"Usage refresh failed: {ex.Message}");
             RefreshFailed?.Invoke(UsageTextFormatter.ToFriendlyError(ex.Message));
         }
         finally
@@ -90,6 +102,12 @@ public sealed class UsageMonitor : IAsyncDisposable
             _refreshGate.Release();
         }
     }
+
+    private static bool IsTransient(Exception ex) => ex is OperationCanceledException or System.IO.IOException ||
+        TransientErrors
+            .Any(value => ex.Message.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+    private void ProviderOnDiagnosticMessage(object? sender, string message) => DiagnosticMessage?.Invoke(this, message);
 
     private void ProviderOnRateLimitsChanged(object? sender, EventArgs e) =>
         _ = RefreshAsync(_lifetime.Token);
@@ -112,6 +130,7 @@ public sealed class UsageMonitor : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _provider.RateLimitsChanged -= ProviderOnRateLimitsChanged;
+        _provider.DiagnosticMessage -= ProviderOnDiagnosticMessage;
         await _lifetime.CancelAsync().ConfigureAwait(false);
 
         if (_periodicRefreshTask is not null)

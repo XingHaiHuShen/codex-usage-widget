@@ -27,7 +27,8 @@ internal static class CodexActivityHookDefinition
             return false;
         }
 
-        return JsonNode.DeepEquals(handler, CreateHandler(command, timeoutSeconds));
+        return JsonNode.DeepEquals(handler, CreateHandler(command, timeoutSeconds)) ||
+            (command == CodexActivityHookBridge.LegacyCommand && JsonNode.DeepEquals(handler, CreateHandler(command, 3)));
     }
 
     public static string BuildLegacyCommand(string processPath)
@@ -50,6 +51,12 @@ internal static class CodexActivityHookDefinition
         if (string.Equals(command, CodexActivityHookBridge.Command, StringComparison.Ordinal))
         {
             timeoutSeconds = CodexActivityHookBridge.HookTimeoutSeconds;
+            return true;
+        }
+
+        if (string.Equals(command, CodexActivityHookBridge.LegacyCommand, StringComparison.Ordinal))
+        {
+            timeoutSeconds = 5;
             return true;
         }
 

@@ -9,7 +9,7 @@ namespace CodexUsageWidget.Infrastructure.Codex.Hooks;
 
 public sealed partial class CodexHookConfigurationManager
 {
-    private static readonly string[] ActivityEvents = ["UserPromptSubmit", "Stop", "SessionEnd"];
+    private static readonly string[] ActivityEvents = ["UserPromptSubmit", "Stop", "SessionEnd", "Interrupt"];
     private static readonly JsonSerializerOptions IndentedJson = new()
     {
         WriteIndented = true,

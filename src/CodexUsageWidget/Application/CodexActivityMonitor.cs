@@ -13,6 +13,8 @@ public sealed class CodexActivityMonitor : IAsyncDisposable
     private Task? _reconciliationTask;
     private int _disposed;
     private bool _completionCheckFailed;
+    private readonly HashSet<string> _uncertainSessions = new(StringComparer.Ordinal);
+    private readonly long _startedAtTicks = DateTime.UtcNow.Ticks;
     private readonly Dictionary<string, string> _activeTurnsBySession =
         new(StringComparer.Ordinal);
     private bool _started;
@@ -25,7 +27,7 @@ public sealed class CodexActivityMonitor : IAsyncDisposable
     {
         _source = source;
         _completionReader = completionReader;
-        _reconciliationInterval = reconciliationInterval ?? TimeSpan.FromSeconds(15);
+        _reconciliationInterval = reconciliationInterval ?? TimeSpan.FromSeconds(3);
         _requestTimeout = requestTimeout ?? TimeSpan.FromSeconds(5);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_reconciliationInterval, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_requestTimeout, TimeSpan.Zero);
@@ -78,9 +80,14 @@ public sealed class CodexActivityMonitor : IAsyncDisposable
             {
                 throw;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 checkFailed = true;
+                SetUncertain(turn.Key, turn.Value);
+                if (!_completionCheckFailed)
+                {
+                    DiagnosticMessage?.Invoke(this, $"Activity completion check failed: {ex.GetType().Name}: {ex.Message}");
+                }
             }
         }
 
@@ -94,6 +101,33 @@ public sealed class CodexActivityMonitor : IAsyncDisposable
     }
 
     public event Action<bool>? ActivityChanged;
+
+    public event Action<bool>? ActivityUncertainChanged;
+
+    public bool IsUncertain
+    {
+        get { lock (_stateLock) { return IsUncertainCore; } }
+    }
+
+    private bool IsUncertainCore => _uncertainSessions.Count > 0 && _uncertainSessions.Count == _activeTurnsBySession.Count;
+
+    private void SetUncertain(string sessionId, string turnId)
+    {
+        lock (_transitionLock)
+        {
+            bool changed;
+            lock (_stateLock)
+            {
+                var wasUncertain = IsUncertainCore;
+                if (_activeTurnsBySession.TryGetValue(sessionId, out var currentTurn) && currentTurn == turnId)
+                {
+                    _uncertainSessions.Add(sessionId);
+                }
+                changed = wasUncertain != IsUncertainCore;
+            }
+            if (changed) { ActivityUncertainChanged?.Invoke(true); }
+        }
+    }
 
     public event EventHandler<string>? DiagnosticMessage;
 
@@ -151,9 +185,11 @@ public sealed class CodexActivityMonitor : IAsyncDisposable
         {
             bool? changedState = null;
             var recoveredOrphan = false;
+            bool? uncertaintyChanged = null;
             lock (_stateLock)
             {
                 var wasActive = _activeTurnsBySession.Count > 0;
+                var wasUncertain = IsUncertainCore;
                 switch (signal.Kind)
                 {
                     case CodexActivitySignalKind.TurnStarted when signal.TurnId is not null:
@@ -162,17 +198,27 @@ public sealed class CodexActivityMonitor : IAsyncDisposable
                             out var previousTurnId) &&
                             !string.Equals(previousTurnId, signal.TurnId, StringComparison.Ordinal);
                         _activeTurnsBySession[signal.SessionId] = signal.TurnId;
+                        if (signal.Recovered && signal.TimestampTicks < _startedAtTicks)
+                        {
+                            _uncertainSessions.Add(signal.SessionId);
+                        }
+                        else
+                        {
+                            _uncertainSessions.Remove(signal.SessionId);
+                        }
                         break;
                     case CodexActivitySignalKind.TurnStopped when signal.TurnId is not null:
                         if (_activeTurnsBySession.TryGetValue(signal.SessionId, out var activeTurnId) &&
                             string.Equals(activeTurnId, signal.TurnId, StringComparison.Ordinal))
                         {
                             _activeTurnsBySession.Remove(signal.SessionId);
+                            _uncertainSessions.Remove(signal.SessionId);
                         }
 
                         break;
                     case CodexActivitySignalKind.SessionEnded:
                         _activeTurnsBySession.Remove(signal.SessionId);
+                        _uncertainSessions.Remove(signal.SessionId);
                         break;
                 }
 
@@ -181,7 +227,13 @@ public sealed class CodexActivityMonitor : IAsyncDisposable
                 {
                     changedState = currentActivity;
                 }
+                if (wasUncertain != IsUncertainCore)
+                {
+                    uncertaintyChanged = IsUncertainCore;
+                }
             }
+
+            DiagnosticMessage?.Invoke(this, $"Activity event {signal.Kind}; session={signal.SessionId}; turn={signal.TurnId}; recovered={signal.Recovered}.");
 
             if (recoveredOrphan)
             {
@@ -194,6 +246,7 @@ public sealed class CodexActivityMonitor : IAsyncDisposable
             {
                 ActivityChanged?.Invoke(emittedActivity);
             }
+            if (uncertaintyChanged is { } uncertain) { ActivityUncertainChanged?.Invoke(uncertain); }
         }
     }
 
@@ -215,6 +268,10 @@ public sealed class CodexActivityMonitor : IAsyncDisposable
         _reconciliationGate.Release();
         await _source.DisposeAsync().ConfigureAwait(false);
         _lifetime.Dispose();
+        if (_completionReader is IAsyncDisposable disposableReader)
+        {
+            await disposableReader.DisposeAsync().ConfigureAwait(false);
+        }
         _reconciliationGate.Dispose();
     }
 }

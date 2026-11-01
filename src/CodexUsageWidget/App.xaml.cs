@@ -51,7 +51,7 @@ public partial class App : System.Windows.Application, IDisposable
         try
         {
             var appServerSession = new CodexAppServerSession();
-            var codexUsageProvider = new CodexUsageProvider(appServerSession);
+            var codexUsageProvider = new CodexUsageProvider(appServerSession, new CodexAppServerSession());
             IUsageProvider usageProvider = codexUsageProvider;
             IRateLimitResetConsumer resetConsumer =
                 new CodexRateLimitResetConsumer(
@@ -74,7 +74,7 @@ public partial class App : System.Windows.Application, IDisposable
 
             activityMonitor = new CodexActivityMonitor(
                 new CodexActivityPipeSignalSource(),
-                new CodexTurnCompletionReader(appServerSession));
+                new CodexTurnCompletionReader(new CodexAppServerSession()));
             activityMonitor.DiagnosticMessage += (_, message) => _logger.Info(message);
             var processPath = Environment.ProcessPath ??
                 throw new InvalidOperationException("Cannot determine the widget executable path.");

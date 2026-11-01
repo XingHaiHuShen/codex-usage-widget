@@ -2,7 +2,7 @@
 
 Activity dots show whether Codex is working without estimating activity from rate-limit
 changes. The widget receives lifecycle signals from official local Codex hooks and keeps the
-state in memory.
+state in memory, with minimal per-session delivery recovery files.
 
 [Back to the README](../README.md)
 
@@ -25,7 +25,7 @@ prompts, responses, transcript contents, transcript paths, or model output.
 2. Select **Install hooks**.
 3. Review the exact proposed `~/.codex/hooks.json` content and confirm the change.
 4. Select **Copy /hooks and open Codex**.
-5. Paste `/hooks` into Codex and trust the new `UserPromptSubmit`, `Stop`, and `SessionEnd`
+5. Paste `/hooks` into Codex and trust the new `UserPromptSubmit`, `Stop`, `Interrupt`, and `SessionEnd`
    definitions.
 6. Return to Settings and select **Check again**.
 
@@ -58,7 +58,9 @@ are left unchanged.
 
 - Hook signals stay on the current Windows account through a current-user-only named pipe.
 - A small PowerShell bridge sends the signal without starting the WPF widget for each event.
-- Activity state is never persisted, so the widget does not build a work history.
+- Only the latest event kind, session id, turn id and timestamp per session are saved in
+  `%LOCALAPPDATA%\CodexUsageWidget\activity-state` for delivery recovery. Prompt text,
+  responses and transcript contents are excluded.
 - The widget does not read Codex authentication data.
 - No hook data is sent to telemetry, analytics, or a remote backend.
 
@@ -67,14 +69,15 @@ configuration.
 
 ## Runtime behavior and recovery
 
-Activity state starts empty when the widget starts. A task that began before the widget or
-hooks were ready cannot be reconstructed.
+Activity state can be recovered from the bridge's latest per-session state files, checked
+every 500 ms. A start from before widget launch is shown as uncertain until confirmed.
+Tasks that began before these hooks were installed cannot be reconstructed.
 
 Each session owns at most one active turn. A later `UserPromptSubmit` replaces an orphaned
 turn in that session, and a late `Stop` for the old turn cannot clear the new one. Duplicate
 events are harmless. `SessionEnd` removes only the matching session.
 
-While activity is present, the widget checks every 15 seconds whether each tracked turn has
+While activity is present, the widget checks every three seconds whether each tracked turn has
 finished. It uses `thread/turns/list` with `itemsView: "notLoaded"`, follows pagination, and
 clears a turn only when its exact identifier has a terminal status and an explicit completion
 timestamp. A late result cannot clear a newer turn in the same session. No checks are sent
@@ -82,13 +85,14 @@ while idle, and each turn's check has a five-second request timeout.
 
 This requires a Codex CLI that supports `thread/turns/list` and completion timestamps, verified
 with CLI 0.154.0. Unsupported requests, unavailable history, missing turns, and failed checks
-leave hook activity unchanged. In particular, a separate app-server can reconstruct a running
+preserve tracked turns; failed checks show uncertainty when no confirmed running turn remains.
+In particular, a separate app-server can reconstruct a running
 turn as `interrupted` without a completion timestamp; that is not evidence of completion.
 
 If Codex terminates without recording completion or sending a final lifecycle event, a later
-turn in the same session replaces the stale turn. Restarting the widget also clears all
-in-memory activity state. The widget never expires activity solely because a task has run
+turn in the same session replaces the stale turn. Restarted widgets recover old starts as
+uncertain rather than asserting that they are still running. The widget never expires activity solely because a task has run
 for a long time.
 
-If the widget is closed, the hook bridge exits successfully after a short connection attempt
-and Codex continues normally.
+If the widget is closed, the hook bridge saves minimal recovery state and exits successfully
+after bounded connection retries. Codex continues normally.

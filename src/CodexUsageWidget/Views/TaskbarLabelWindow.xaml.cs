@@ -135,15 +135,12 @@ public partial class TaskbarLabelWindow : Window
         }
     }
 
-    public void SetActivityState(bool isActive)
+    public void SetActivityState(bool isActive, bool uncertain = false)
     {
-        if (_isTaskActive == isActive)
-        {
-            return;
-        }
-
         _isTaskActive = isActive;
         ActivityDots.IsActive = isActive;
+        ActivityDots.Opacity = uncertain ? 0.4 : 1;
+        ActivityDots.ToolTip = uncertain ? Strings.Get("Activity_Uncertain") : null;
     }
 
     public void SetSystemTheme(EffectiveTheme theme)

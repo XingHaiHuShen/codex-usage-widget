@@ -41,8 +41,10 @@ public partial class MainWindow : Window
     private DisplayedLimitPreference _displayedLimitPreference;
     private TimeFormatPreference _timeFormatPreference;
     private UsageSnapshot? _latestSnapshot;
+    private string? _latestRefreshError;
     private UsageWidgetViewModel _viewModel = UsageWidgetViewModel.Loading();
     private bool _isRealActivityActive;
+    private bool _isActivityUncertain;
     private bool _isActivityPreviewEnabled;
     private bool _isSettingsOpen;
     private bool _isResetDialogOpen;
@@ -103,6 +105,7 @@ public partial class MainWindow : Window
         _usageMonitor.RefreshFailed += UsageMonitorOnRefreshFailed;
         DetailedView.ResetUseRequested += DetailedViewOnResetUseRequested;
         _activityMonitor.ActivityChanged += ActivityMonitorOnActivityChanged;
+        _activityMonitor.ActivityUncertainChanged += ActivityMonitorOnUncertaintyChanged;
         _taskbarLabel.OpenRequested += (_, _) =>
             Dispatcher.BeginInvoke(_widgetVisibility.Show, DispatcherPriority.ApplicationIdle);
         _taskbarLabel.ToggleRequested += (_, _) => _widgetVisibility.Toggle();
@@ -158,7 +161,11 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(() => SetViewModel(_viewModel.Syncing()));
 
     private void UsageMonitorOnSnapshotUpdated(UsageSnapshot snapshot) =>
-        Dispatcher.BeginInvoke(() => RenderSnapshot(snapshot));
+        Dispatcher.BeginInvoke(() =>
+        {
+            _latestRefreshError = null;
+            RenderSnapshot(snapshot);
+        });
 
     private void UsageMonitorOnRefreshFailed(string message) =>
         Dispatcher.BeginInvoke(() => RenderError(message));
@@ -172,10 +179,20 @@ public partial class MainWindow : Window
 
     private void ApplyActivityIndicatorState()
     {
-        var isActive = _isRealActivityActive || _isActivityPreviewEnabled;
+        var uncertain = _isActivityUncertain && !_isActivityPreviewEnabled;
+        var isActive = (_isRealActivityActive && !uncertain) || _isActivityPreviewEnabled;
+        WidgetActivityDots.Opacity = uncertain ? 0.4 : 1;
+        WidgetActivityDots.ShowIdleDot = uncertain;
+        WidgetActivityDots.ToolTip = uncertain ? Strings.Get("Activity_Uncertain") : Strings.Get("Main_ActivityRunning");
         WidgetActivityDots.IsActive = isActive;
-        _taskbarLabel.SetActivityState(isActive);
+        _taskbarLabel.SetActivityState(isActive, uncertain);
     }
+
+    private void ActivityMonitorOnUncertaintyChanged(bool uncertain) => Dispatcher.BeginInvoke(() =>
+    {
+        _isActivityUncertain = uncertain;
+        ApplyActivityIndicatorState();
+    });
 
     private void RenderSnapshot(UsageSnapshot snapshot)
     {
@@ -185,7 +202,7 @@ public partial class MainWindow : Window
             snapshot,
             displayedWindow,
             _timeFormatPreference);
-        SetViewModel(nextViewModel);
+        SetViewModel(_latestRefreshError is { } error ? nextViewModel.Stale(error) : nextViewModel);
         if (_density == WidgetDensity.Detailed)
         {
             DetailedView.ScrollToTop();
@@ -197,14 +214,20 @@ public partial class MainWindow : Window
 
         _trayIcon.UpdateUsage(displayedWindow?.RemainingPercent);
         _taskbarLabel.UpdateUsage(
-            displayedWindow?.Label,
+            _latestRefreshError is null ? displayedWindow?.Label : Strings.Get("Status_Stale"),
             displayedWindow?.RemainingPercent,
             displayedWindow?.ResetsAt);
     }
 
     private void RenderError(string message)
     {
-        _latestSnapshot = null;
+        _latestRefreshError = message;
+        if (_latestSnapshot is { } snapshot)
+        {
+            SetViewModel(UsageWidgetViewModel.FromSnapshot(snapshot, ResolveDisplayedWindow(snapshot), _timeFormatPreference).Stale(message));
+            _taskbarLabel.UpdateUsage(Strings.Get("Status_Stale"), _viewModel.HeadlineRemainingPercent, _viewModel.HeadlineResetsAt);
+            return;
+        }
         SetViewModel(UsageWidgetViewModel.Error(message));
         _trayIcon.UpdateUsage(null);
         _taskbarLabel.UpdateUsage(null, null, null);

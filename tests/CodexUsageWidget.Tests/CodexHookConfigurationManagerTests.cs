@@ -1,4 +1,7 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
+using System.Diagnostics;
+using CodexUsageWidget.Application;
 using CodexUsageWidget.Infrastructure.Codex.Hooks;
 
 namespace CodexUsageWidget.Tests;
@@ -13,6 +16,51 @@ public sealed class CodexHookConfigurationManagerTests : IDisposable
     private string HooksPath => Path.Combine(_directory, "hooks.json");
 
     private string ConfigPath => Path.Combine(_directory, "config.toml");
+
+    [Fact]
+    public async Task HookWhileWidgetClosedRecoversStartAndStopFromMinimalState()
+    {
+        var pipeName = "CodexUsageWidget.Tests." + Guid.NewGuid().ToString("N");
+        var info = new ProcessStartInfo("powershell.exe")
+        {
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true
+        };
+        foreach (var argument in new[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", CodexActivityHookBridge.BuildCommand(pipeName, _directory) })
+        {
+            info.ArgumentList.Add(argument);
+        }
+        using var process = Process.Start(info)!;
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        await process.StandardInput.WriteAsync("""{"hook_event_name":"UserPromptSubmit","session_id":"session","turn_id":"turn","prompt":"private content"}""");
+        process.StandardInput.Close();
+        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.Contains("\"continue\":true", await stdout, StringComparison.Ordinal);
+        Assert.Contains("delivery failed", await stderr, StringComparison.Ordinal);
+        var path = Path.Combine(_directory, "session.json");
+        var saved = File.ReadAllText(path);
+        Assert.DoesNotContain("private content", saved, StringComparison.Ordinal);
+        var signal = JsonSerializer.Deserialize<CodexActivitySignal>(saved)!;
+
+        var source = new CodexActivityPipeSignalSource(pipeName, stateDirectory: _directory);
+        await using var monitor = new CodexActivityMonitor(source);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var signals = 0;
+        source.SignalReceived += _ => signals++;
+        monitor.ActivityChanged += active => { if (active) { start.TrySetResult(); } else { stop.TrySetResult(); } };
+        await monitor.StartAsync();
+        await start.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.True(monitor.IsActive);
+        Assert.True(monitor.IsUncertain);
+        var stopped = signal with { Kind = CodexActivitySignalKind.TurnStopped, TimestampTicks = signal.TimestampTicks + 1 };
+        File.WriteAllText(path, JsonSerializer.Serialize(stopped));
+        await stop.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(monitor.IsActive);
+        Assert.False(monitor.IsUncertain);
+        Assert.Equal(2, signals);
+    }
 
     [Fact]
     public void InstallCreatesNewHooksFile()

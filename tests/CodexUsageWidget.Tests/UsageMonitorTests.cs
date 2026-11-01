@@ -6,6 +6,34 @@ namespace CodexUsageWidget.Tests;
 public sealed class UsageMonitorTests
 {
     [Fact]
+    public async Task TimeoutRetriesOnceAndCanRecoverWithoutReportingOffline()
+    {
+        var provider = new TimeoutOnceProvider();
+        await using var monitor = new UsageMonitor(provider, requestTimeout: TimeSpan.FromMilliseconds(30));
+        var updated = 0;
+        var failed = 0;
+        monitor.SnapshotUpdated += _ => updated++;
+        monitor.RefreshFailed += _ => failed++;
+        await monitor.RefreshAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(2, provider.ReadCount);
+        Assert.Equal(1, updated);
+        Assert.Equal(0, failed);
+    }
+
+    private sealed class TimeoutOnceProvider : IUsageProvider
+    {
+        public int ReadCount { get; private set; }
+        public event EventHandler? RateLimitsChanged { add { } remove { } }
+        public event EventHandler<string>? DiagnosticMessage { add { } remove { } }
+        public async Task<UsageSnapshot> ReadUsageAsync(CancellationToken cancellationToken = default)
+        {
+            if (++ReadCount == 1) { await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken); }
+            return new UsageSnapshot(new UsageRateLimits([], null, null), null, DateTimeOffset.Now);
+        }
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    [Fact]
     public async Task RefreshAfterCurrentWaitsAndReadsFreshUsage()
     {
         var provider = new BlockingUsageProvider();

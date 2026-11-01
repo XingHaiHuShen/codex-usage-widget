@@ -8,6 +8,8 @@ through the official Codex CLI app server.
 
 > This is an independent utility and is not an official OpenAI application.
 
+This personal branch includes [usage and activity reliability fixes](docs/LOCAL_FIXES.md).
+
 ![Codex Usage Widget showing 5-hour and weekly limits](docs/images/desktop-widget-limits.png)
 
 ## Quick start
@@ -115,6 +117,7 @@ The application writes only under `%LOCALAPPDATA%\CodexUsageWidget`:
 - `pending-rate-limit-reset.json`: an unfinished reset attempt kept until Codex returns a
   definitive outcome, so a retry cannot consume another reset
 - `logs\codex-usage-widget-YYYYMMDD.log`: diagnostic logs retained for 14 days
+- `activity-state\<session-id>.json`: latest minimal lifecycle state for local delivery recovery
 
 The widget displays ChatGPT and Codex subscription limits. It does not display OpenAI API
 billing or API-key usage.
