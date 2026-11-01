@@ -7,6 +7,9 @@ $si.CreateNoWindow = $true
 $si.RedirectStandardInput = $true
 $si.RedirectStandardOutput = $true
 $si.RedirectStandardError = $true
+$si.StandardInputEncoding = [Text.UTF8Encoding]::new($false)
+$si.StandardOutputEncoding = [Text.Encoding]::UTF8
+$si.StandardErrorEncoding = [Text.Encoding]::UTF8
 $proxy = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 if ($proxy.ProxyEnable -eq 1 -and $proxy.ProxyServer -match '^[^=]+:\d+$') {
     $si.Environment['HTTPS_PROXY'] = 'http://' + $proxy.ProxyServer
@@ -52,7 +55,7 @@ try {
         } catch { [pscustomobject]@{Stage=$method;Error=$_.Exception.Message} | ConvertTo-Json -Compress }
     }
 } finally {
-    $proc.StandardInput.Close()
+    try { $proc.StandardInput.Close() } catch [IO.IOException] { }
     if (-not $proc.WaitForExit(2000)) { $proc.Kill($true) }
     $proc.Dispose()
 }
