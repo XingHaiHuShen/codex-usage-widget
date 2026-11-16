@@ -3,6 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              MinHeight="56">
     <UserControl.Resources>
+        <Style x:Key="LimitFooterText" TargetType="TextBlock" BasedOn="{StaticResource SupportingText}">
+            <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI, Microsoft YaHei" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+            <Setter Property="Foreground" Value="{DynamicResource TextTertiary}" />
+        </Style>
         <Style x:Key="WeeklyReferenceVisibility" TargetType="FrameworkElement">
             <Setter Property="Visibility" Value="Collapsed" />
             <Style.Triggers>
@@ -44,7 +50,7 @@
             <ProgressBar Maximum="100"
                          Value="{Binding UsedPercent, Mode=OneWay}"
                          Style="{StaticResource UsageProgress}" />
-            <Grid Height="6" IsHitTestVisible="False"
+            <Grid x:Name="ReferenceGap" Height="6" IsHitTestVisible="False"
                   Style="{StaticResource WeeklyReferenceVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{Binding GapLeading}" />
@@ -74,18 +80,13 @@
             </Grid.ColumnDefinitions>
             <TextBlock Text="{Binding ResetText}"
                        TextTrimming="CharacterEllipsis"
-                       Style="{StaticResource SupportingText}"
-                       Foreground="{DynamicResource TextTertiary}" />
+                       Style="{StaticResource LimitFooterText}" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
                 <TextBlock Text="{Binding ReferenceText}" Margin="0,0,12,0"
-                           FontFamily="{StaticResource UiFont}" FontSize="11"
-                           Typography.NumeralAlignment="Tabular"
-                           Foreground="{DynamicResource TextTertiary}"
-                           Style="{StaticResource WeeklyReferenceVisibility}" />
+                           Visibility="{Binding Visibility, ElementName=ReferenceGap}"
+                           Style="{StaticResource LimitFooterText}" />
                 <TextBlock Text="{Binding UsedText}"
-                           Style="{StaticResource SupportingText}"
-                           Typography.NumeralAlignment="Tabular"
-                           Foreground="{DynamicResource TextTertiary}" />
+                           Style="{StaticResource LimitFooterText}" />
             </StackPanel>
         </Grid>
     </Grid>
