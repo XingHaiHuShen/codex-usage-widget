@@ -53,6 +53,7 @@
   <data name="Usage_PrimaryLimit" xml:space="preserve"><value>主要限制</value></data>
   <data name="Usage_SecondaryLimit" xml:space="preserve"><value>次要限制</value></data>
   <data name="Usage_UsedPercent" xml:space="preserve"><value>已用 {0}%</value></data>
+  <data name="Usage_ReferencePercent" xml:space="preserve"><value>参考 {0}%</value></data>
   <data name="Usage_RemainingPercent" xml:space="preserve"><value>剩余 {0}%</value></data>
   <data name="Usage_ResetUnavailable" xml:space="preserve"><value>暂无重置时间</value></data>
   <data name="Usage_ResetsNow" xml:space="preserve"><value>现在重置</value></data>

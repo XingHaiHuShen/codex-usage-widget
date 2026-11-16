@@ -53,6 +53,7 @@
   <data name="Usage_PrimaryLimit" xml:space="preserve"><value>Primary limit</value></data>
   <data name="Usage_SecondaryLimit" xml:space="preserve"><value>Secondary limit</value></data>
   <data name="Usage_UsedPercent" xml:space="preserve"><value>{0}% used</value></data>
+  <data name="Usage_ReferencePercent" xml:space="preserve"><value>Reference {0}%</value></data>
   <data name="Usage_RemainingPercent" xml:space="preserve"><value>{0}% remaining</value></data>
   <data name="Usage_ResetUnavailable" xml:space="preserve"><value>Reset time unavailable</value></data>
   <data name="Usage_ResetsNow" xml:space="preserve"><value>Resets now</value></data>

@@ -69,6 +69,11 @@ widget falls back to an available window when Codex does not return the selected
 Token activity is informational. Token counts do not map directly to the remaining
 subscription percentage.
 
+In the detailed Overview, the weekly limit shows `Reference XX%` before actual usage.
+The reference is the elapsed share of the account's actual seven-day quota cycle, based
+on its reset time. Diagonal stripes mark the interval between reference and actual usage.
+It refreshes with usage data and is hidden when cycle timing is missing or expired.
+
 When earned rate-limit resets are available, expand **Rate-limit resets** in the detailed
 widget to see each expiration time. **Use reset** always requires confirmation, consumes the
 selected earned reset, and lets Codex apply it to an eligible rate-limit window.

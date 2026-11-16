@@ -7,6 +7,23 @@ namespace CodexUsageWidget.Tests;
 public sealed class UsageWidgetViewModelTests
 {
     [Fact]
+    public void ReferenceIsAvailableOnlyForGeneralWeeklyLimits()
+    {
+        var reset = DateTimeOffset.Now.AddDays(3);
+        var weekly = new UsageWindow("Weekly limit", 45, 10_080, reset);
+        var snapshot = CreateSnapshot(
+            new UsageLimitBucket("codex", "Codex", true,
+                [new UsageWindow("5h limit", 20, 300, reset), weekly], null, null, null, null),
+            new UsageLimitBucket("model", "Model", false, [weekly], null, null, null, null));
+
+        var model = UsageWidgetViewModel.FromSnapshot(snapshot, weekly);
+
+        Assert.False(model.GeneralLimits[0].HasReference);
+        Assert.True(model.GeneralLimits[1].HasReference);
+        Assert.False(model.ModelLimits[0].HasReference);
+    }
+
+    [Fact]
     public void FromSnapshotUsesMostConstrainedGeneralWindowForHeadline()
     {
         var reset = DateTimeOffset.Now.AddHours(2);

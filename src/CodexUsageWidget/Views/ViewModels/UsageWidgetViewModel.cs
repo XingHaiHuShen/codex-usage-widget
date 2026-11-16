@@ -155,7 +155,8 @@ public sealed class UsageWidgetViewModel
                 ? $"{limit.Label} · {UsageLabelLocalizer.Localize(window.Label)}"
                 : UsageLabelLocalizer.Localize(window.Label),
             window,
-            timeFormatPreference)))
+            timeFormatPreference,
+            includeWeeklyReference: !includeBucketLabel)))
         .ToArray();
 
     private static List<DetailMetricViewModel> BuildAccountMetrics(

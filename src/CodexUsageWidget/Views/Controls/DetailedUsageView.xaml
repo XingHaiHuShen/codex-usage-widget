@@ -181,7 +181,7 @@
                     <ItemsControl ItemsSource="{Binding GeneralLimits}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <controls:UsageLimitRow />
+                                <controls:UsageLimitRow ShowWeeklyReference="True" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

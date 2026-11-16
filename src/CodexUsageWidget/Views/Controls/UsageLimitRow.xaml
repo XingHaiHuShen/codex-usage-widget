@@ -2,6 +2,20 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              MinHeight="56">
+    <UserControl.Resources>
+        <Style x:Key="WeeklyReferenceVisibility" TargetType="FrameworkElement">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding HasReference}" Value="True" />
+                        <Condition Binding="{Binding ShowWeeklyReference, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Visible" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
     <Grid Margin="0,2,0,4">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -26,24 +40,53 @@
                        Typography.NumeralAlignment="Tabular"
                        Margin="8,0,0,0" />
         </Grid>
-        <ProgressBar Grid.Row="1"
-                     Margin="0,7,0,6"
-                     Maximum="100"
-                     Value="{Binding UsedPercent, Mode=OneWay}"
-                     Style="{StaticResource UsageProgress}" />
+        <Grid Grid.Row="1" Margin="0,7,0,6">
+            <ProgressBar Maximum="100"
+                         Value="{Binding UsedPercent, Mode=OneWay}"
+                         Style="{StaticResource UsageProgress}" />
+            <Grid Height="6" IsHitTestVisible="False"
+                  Style="{StaticResource WeeklyReferenceVisibility}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{Binding GapLeading}" />
+                    <ColumnDefinition Width="{Binding GapWidth}" />
+                    <ColumnDefinition Width="{Binding GapTrailing}" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="1" ClipToBounds="True" Opacity="0.58">
+                    <Border.Background>
+                        <DrawingBrush TileMode="Tile" Viewport="0,0,6,6"
+                                      ViewportUnits="Absolute" Viewbox="0,0,6,6" ViewboxUnits="Absolute">
+                            <DrawingBrush.Drawing>
+                                <GeometryDrawing Geometry="M -1,1 L 1,-1 M 0,6 L 6,0 M 5,7 L 7,5">
+                                    <GeometryDrawing.Pen>
+                                        <Pen Brush="{DynamicResource TextSecondary}" Thickness="1" />
+                                    </GeometryDrawing.Pen>
+                                </GeometryDrawing>
+                            </DrawingBrush.Drawing>
+                        </DrawingBrush>
+                    </Border.Background>
+                </Border>
+            </Grid>
+        </Grid>
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock Text="{Binding ResetText}"
+                       TextTrimming="CharacterEllipsis"
                        Style="{StaticResource SupportingText}"
                        Foreground="{DynamicResource TextTertiary}" />
-            <TextBlock Grid.Column="1"
-                       Text="{Binding UsedText}"
-                       Style="{StaticResource SupportingText}"
-                       Margin="8,0,0,0"
-                       Foreground="{DynamicResource TextTertiary}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
+                <TextBlock Text="{Binding ReferenceText}" Margin="0,0,12,0"
+                           FontFamily="{StaticResource UiFont}" FontSize="11"
+                           Typography.NumeralAlignment="Tabular"
+                           Foreground="{DynamicResource TextTertiary}"
+                           Style="{StaticResource WeeklyReferenceVisibility}" />
+                <TextBlock Text="{Binding UsedText}"
+                           Style="{StaticResource SupportingText}"
+                           Typography.NumeralAlignment="Tabular"
+                           Foreground="{DynamicResource TextTertiary}" />
+            </StackPanel>
         </Grid>
     </Grid>
 </UserControl>
